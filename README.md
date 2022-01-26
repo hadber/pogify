@@ -21,6 +21,7 @@ Pogifying your images with default settings is pretty simple:
 python3 pogify.py -i doge.png -o doge.gif
 ```
 The above command generates the demo below. (epilepsy warning, colours and transition speed can all be modified using the supplied command line arguments or directly from code).
+
 Demo
 ---------------------
 <img src="doge.png"><img src="doge.gif">
