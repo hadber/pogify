@@ -64,7 +64,7 @@ def pog_frame_phase1(frame, shift, fid):
     return frame
 
 def init_parser():
-    parser = argparse.ArgumentParser(description="Makes images poggers. Don't touch the options if you're unsure.")
+    parser = argparse.ArgumentParser(description="Makes images poggers. Don't touch the options if you're unsure.  All the intermediary frames that were generated are found under the frames/ directory.")
 
     parser.add_argument("-i", "--image", help="Path to image that needs pogifying", 
         metavar="img", required=True, type=pathlib.Path)
@@ -91,5 +91,5 @@ if __name__ == "__main__":
         print(f"Processed frame {i+1}/{args.frames}")
 
     save_transparent_gif(frames, args.duration, args.output)
-  #  im.save(fp=args.output, format="GIF", append_images=frames,
-  #                  save_all=True, duration=args.duration, loop=0)
+#    im.save(fp=args.output, format="GIF", append_images=frames,
+#                   save_all=True, duration=args.duration, loop=0)
