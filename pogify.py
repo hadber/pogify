@@ -22,11 +22,12 @@ def pog_frame_phase3(frame):
 
 # based on https://stackoverflow.com/questions/24874765/python-pil-shift-the-hue-and-saturation
 # if anyone has any better solutions using stock python, please reach out, this is very slow
-def pog_frame_phase2(frame, hue, fid):
+def pog_frame_phase2(frame, hue, fid, do_rainbow=False, rmove=None):
     mask = frame.copy()
     frame = frame.convert("HSV")
-    ld = frame.load()
+    # why use load? see here: https://pillow.readthedocs.io/en/stable/reference/PixelAccess.html
     mld = mask.load()
+    ld = frame.load()
     width, height = frame.size
 
     for y in range(height):
@@ -40,8 +41,12 @@ def pog_frame_phase2(frame, hue, fid):
             mld[x,y] = (r,g,b,a)
 
             h,s,v = ld[x,y]
-            h = (h + hue) % 255
-            s = (s + 50) if s + 50 > 255 else s + 50 
+            if(do_rainbow):
+                h = int((((y + rmove) / height) * 255) % 255)
+                s = int(((x / width) * 255) + 126 % 255)
+            else:
+                h = (h + hue) % 255
+                s = (s + 50) if s + 50 > 255 else s + 50 
             ld[x,y] = (h,s,v)
     frame = frame.convert("RGBA")
     mask = mask.convert("L")
@@ -76,20 +81,26 @@ def init_parser():
         metavar="ms", default=50, type=int)
     parser.add_argument("-m", "--move", help="Offset percentage in both direction (default: 33)",
         metavar="p", default=33, type=int)
+    parser.add_argument("-r", "--rainbowify", help="Adds a rainbow hue shift. Currently if this is enabled, everything else is disabled.",
+        action=argparse.BooleanOptionalAction)
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = init_parser()
     im = Image.open(args.image)
-
     hues = sorted(random.sample(range(-360, 360), args.frames))
     frames = []
-    for i in range(args.frames):
-        poggers_frame = pog_frame_phase1(im, args.move, i)
-        poggers_frame = pog_frame_phase2(poggers_frame, hues[i], i)
-        frames.append(poggers_frame)
-        print(f"Processed frame {i+1}/{args.frames}")
 
+    for i in range(args.frames):
+        if(args.rainbowify):
+            amount = im.height / args.frames
+            rframe = pog_frame_phase2(im, None, i, True, (i*amount))
+            frames.append(rframe)
+        else:
+            poggers_frame = pog_frame_phase1(im, args.move, i)
+            poggers_frame = pog_frame_phase2(poggers_frame, hues[i], i)
+            frames.append(poggers_frame)
+        print(f"Processed frame {i+1}/{args.frames}")
     save_transparent_gif(frames, args.duration, args.output)
 #    im.save(fp=args.output, format="GIF", append_images=frames,
 #                   save_all=True, duration=args.duration, loop=0)
