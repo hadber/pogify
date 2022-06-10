@@ -18,9 +18,11 @@ python3 pogify.py -i doge.png -o doge.gif
 ```
 The above command generates the demo below. Epilepsy warning, colours and transition speed can all be modified using the supplied command line arguments or directly from code - it should look alright if they're a tiny discord emote I think.
 
+*NEW FEATURE* - you can now make static rainbow images by using the `-r ` argument. A demo of what that looks like is below.
+
 Demo - flashing colours warning
 ---------------------
 <details>
 <Summary>Click here to view the output!</Summary>
-<img src="doge.png"><img src="doge.gif">
+<img src="doge.png"><img src="doge.gif"><img src="doge_rainbow.gif">
 </details>
