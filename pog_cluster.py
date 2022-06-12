@@ -21,21 +21,16 @@ class Cluster():
     # same color multiple times
     def add(self, color, amount):
         self.data_count += amount
+        self.cluster[color] = amount
 
-        if color in self.cluster:
-            self.cluster[color] += 1
-        else:
-            self.cluster[color] = 1
 
     def remove(self, color):
         self.data_count -= self.cluster[color]
         self.cluster.pop(color)
 
     def calc_centroid(self):
-        print(len(self.cluster))
-        new_center = reduce(lambda a,b: tuple((item1 + item2) * self.cluster[b] for item1, item2 in zip(a, b)), list(self.cluster))
+        new_center = reduce(lambda a,b: tuple(item1 + (item2 * self.cluster[b]) for item1, item2 in zip(a, b)), list(self.cluster))
         self.centroid = tuple([x / self.data_count for x in new_center])
-        print(self, self.centroid)
 
     def get_centroid(self):
         return self.centroid
@@ -111,7 +106,7 @@ def _group_colours(img):
                 continue
 
             avg = (r + g + b) / 3
-            if(abs(r - avg) <= 15 and abs(g - avg) <= 15 and abs(b - avg) <= 15):
+            if(abs(r - avg) <= 10 and abs(g - avg) <= 10 and abs(b - avg) <= 10):
                 # this is a gray or white
                 continue
 
