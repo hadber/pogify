@@ -8,43 +8,90 @@ import random
 from PIL import Image, ImageDraw
 from functools import reduce
 
+class Cluster():
 
-def get_centroid(cluster):
-    new_center = reduce(lambda a,b: tuple(item1 + item2 for item1, item2 in zip(a, b)), cluster)
-    return tuple([x / len(cluster) for x in new_center])
+    def __init__(self):
+        self.cluster = {}
+        self.centroid = (0, 0, 0)
+        self.data_count = 0
+
+    # add a color and how many times that color appears
+    # so that we could do a weighted clustering and thus
+    # save us a tiny bit of time from processing the
+    # same color multiple times
+    def add(self, color, amount):
+        self.data_count += amount
+
+        if color in self.cluster:
+            self.cluster[color] += 1
+        else:
+            self.cluster[color] = 1
+
+    def remove(self, color):
+        self.data_count -= self.cluster[color]
+        self.cluster.pop(color)
+
+    def calc_centroid(self):
+        print(len(self.cluster))
+        new_center = reduce(lambda a,b: tuple((item1 + item2) * self.cluster[b] for item1, item2 in zip(a, b)), list(self.cluster))
+        self.centroid = tuple([x / self.data_count for x in new_center])
+        print(self, self.centroid)
+
+    def get_centroid(self):
+        return self.centroid
+
+    def has_color(self, color):
+        return color in self.cluster
 
 def cluster_colors(img, k):
-    # each cluster is a dominant color
-    clusters = [[] for _ in range(k)] # c[0] -> cluster 1
-    centroids = [(0, 0, 0)] * k # each cluster has a centroid; c[0] has centroid[0]
-    
+    # each centroid is a dominant color
+    clusters = [Cluster() for _ in range(k)] # c[0] -> cluster 1 
     all_pts = _group_colours(img) # every color is a data point in 3D space
+    centroids = set()
 
     for pt in all_pts:
         # init by adding all points to a random cluster
         assigned_cluster = random.randint(0, k-1)
-        clusters[assigned_cluster].append(pt)
-#        print(f"{pt} assigned to cluster {assigned_cluster} which is now {clusters[assigned_cluster]}")
-    for _ in range(100):
+        clusters[assigned_cluster].add(pt, all_pts[pt])
 
-        for i in range(k):
-            centroids[i] = get_centroid(clusters[i])
+    # we leave it at 100 in case there is something
+    # wrong so we don't loop forever and ever and ever
+    for lo in range(100):
+        old_centroids = centroids.copy()
+        for cluster in clusters:
+            cluster.calc_centroid()
+            centroids.clear()
+            centroids.add(cluster.get_centroid())
 
-        new_clusters = [[] for _ in range(k)] # never again initalize stuff like this - [[]] * k
-        for ptr, ptg, ptb in all_pts:    
+        # both sets contain the same centroids
+        if old_centroids == centroids:
+            print(f"I broke after {lo} tries!")
+            break
+
+        #new_clusters = [[] for _ in range(k)] # never again initalize stuff like this - [[]] * k
+        for color in all_pts:   
+            ptr, ptg, ptb = color
             min_dist = 10000 # since the space is a 255 cube, the distance can't be too large, right?
-            cid = None
-            for cr, cg, cb in centroids:
+            # turns out, max distance is around ~4-5k
+            new_cluster = None
+            for cluster in clusters:
+                cr, cg, cb = cluster.get_centroid()
                 dist = (((cr-ptr) ** 2) + ((cg-ptg) ** 2) + ((cb-ptb) ** 2)) ** (1/2)
                 if(min_dist > dist):
                     min_dist = dist
-                    cid = centroids.index((cr, cg, cb))
-            new_clusters[cid].append((ptr, ptg, ptb))
-        clusters = new_clusters
-    return centroids
+                    new_cluster = cluster
 
-#    for g in clusters:
-#        print(g, "\n\n\n\n")
+#            for c in clusters:
+#                print(f"Cluster {c} contains color {color}: {c.has_color(color)}")
+            old_cluster = next((cluster for cluster in clusters if cluster.has_color(color)), None)
+            #print(old_cluster == new_cluster)
+            if not old_cluster == new_cluster:
+                new_cluster.add(color, old_cluster.cluster[color])
+                old_cluster.remove(color)
+
+            #new_clusters[cid].append((ptr, ptg, ptb))
+        #clusters = new_clusters
+    return clusters
 
 def _group_colours(img):
     ld = img.load()
@@ -64,7 +111,7 @@ def _group_colours(img):
                 continue
 
             avg = (r + g + b) / 3
-            if(abs(r - avg) <= 10 and abs(g - avg) <= 10 and abs(b - avg) <= 10):
+            if(abs(r - avg) <= 15 and abs(g - avg) <= 15 and abs(b - avg) <= 15):
                 # this is a gray or white
                 continue
 
@@ -75,10 +122,12 @@ def _group_colours(img):
                 col_dict[rbgcol] = 1
     return col_dict
 
-k = 5
+k = 3
 
 im = Image.open("test/shiny/gangweed.png")
-dominant_colors = cluster_colors(im, k)
+clusters = cluster_colors(im, k)
+dominant_colors = [x.get_centroid() for x in clusters]
+#print(clusters, dominant_colors)
 
 width, height = im.size
 palette_size = int(height * 0.1)
@@ -88,20 +137,10 @@ new_im.putdata(im.getdata())
 draw = ImageDraw.Draw(new_im)
 y_avg = int(palette_size/2)
 x_offset = int(width/k + 1)
-print(x_offset)
+
 for i in range(len(dominant_colors)):
     g = tuple([int(c) for c in dominant_colors[i]])
-#    dominant_colors[i] = g
     draw.line([((k - i) * x_offset, height + y_avg), (0, height +  y_avg)], fill = g, width=palette_size)
-
-
-
-
-
-
-#draw.line((0,0) + im.size, fill = dominant_colors[0], width=3)
-
-
 
 new_im.save("test/shiny/gangweed_palette.png")
 

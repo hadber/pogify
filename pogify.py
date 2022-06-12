@@ -93,9 +93,9 @@ if __name__ == "__main__":
     hues = sorted(random.sample(range(-360, 360), args.frames))
     frames = []
 
-    if args.shiny:
-        all_colors = 
-        pass
+    #if args.shiny:
+    #    all_colors = 
+    #    pass
 
 
     for i in range(args.frames):
