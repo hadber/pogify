@@ -83,6 +83,8 @@ def init_parser():
         metavar="p", default=33, type=int)
     parser.add_argument("-r", "--rainbowify", help="Adds a rainbow hue shift. Currently if this is enabled, everything else is disabled.",
         action=argparse.BooleanOptionalAction)
+    parser.add_argument("-s", "--shiny", help="Makes the image change colours in a cool way.",
+        action=argparse.BooleanOptionalAction)
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -91,8 +93,16 @@ if __name__ == "__main__":
     hues = sorted(random.sample(range(-360, 360), args.frames))
     frames = []
 
+    if args.shiny:
+        all_colors = 
+        pass
+
+
     for i in range(args.frames):
-        if(args.rainbowify):
+        if args.shiny:
+
+            frames.append(frame)
+        elif args.rainbowify:
             amount = im.height / args.frames
             rframe = pog_frame_phase2(im, None, i, True, (i*amount))
             frames.append(rframe)
