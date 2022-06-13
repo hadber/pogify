@@ -4,9 +4,9 @@
 # try something like pip3 install Pillow
 
 import argparse
-import colorsys
 import pathlib
 import random
+from colorsys import rgb_to_hsv
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance
 # there are issues saving GIFS with transparency, see:
 # https://github.com/python-pillow/Pillow/issues/4644
@@ -15,14 +15,44 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance
 # in the meantime, im using the fix from here:
 # https://gist.github.com/egocarib/ea022799cca8a102d14c54a22c45efe0
 from gifsavefix import save_transparent_gif
+from pog_cluster import save_palette, get_dominant_colors
 
 def pog_frame_phase3(frame):
     # TODO: ADD BLUR TO THE SIDE IT'S MOVING TO
     pass
 
+def _rainbow_frame(frame, pos, col, rmove):
+    width, height = frame.size
+    h, s, v = col
+    x, y = pos
+    h = int((((y + rmove) / height) * 255) % 255)
+    s = int(((x / width) * 255) + 126 % 255)
+    return h, s, v
+
+def _pog_frame(frame, pos, col, hue):
+    h, s, v = col
+    h = (h + hue) % 255
+    s = (s + 50) if s + 50 > 255 else s + 50 # this makes no sense wtf was i doing here
+    return h, s, v
+
+def _shiny_frame(frame, pos, col, data):
+    radius = 110 # get a chunk of the colorspace that we're going to be doing modifications to
+    main_color = data[0]
+    h, s, v = col
+    amount = 32
+    for g in range(len(main_color)):
+        if(abs(main_color[g] - col[g]) > radius):
+            # if the color is not within the sphere we define, we know
+            # this is not a color we want to modify
+            #print(h, s, v)
+            return h, s, v
+
+    h = int((i * amount) % 255)
+    s = int((i * amount) + 126 % 255)
+    return h, s, v
 # based on https://stackoverflow.com/questions/24874765/python-pil-shift-the-hue-and-saturation
-# if anyone has any better solutions using stock python, please reach out, this is very slow
-def pog_frame_phase2(frame, hue, fid, do_rainbow=False, rmove=None):
+# if anyone has any better solutions using stock python, please reach out, this is rather slow
+def pog_frame_general(frame, fid, func, data):
     mask = frame.copy()
     frame = frame.convert("HSV")
     # why use load? see here: https://pillow.readthedocs.io/en/stable/reference/PixelAccess.html
@@ -41,12 +71,13 @@ def pog_frame_phase2(frame, hue, fid, do_rainbow=False, rmove=None):
             mld[x,y] = (r,g,b,a)
 
             h,s,v = ld[x,y]
-            if(do_rainbow):
-                h = int((((y + rmove) / height) * 255) % 255)
-                s = int(((x / width) * 255) + 126 % 255)
-            else:
-                h = (h + hue) % 255
-                s = (s + 50) if s + 50 > 255 else s + 50 
+            h,s,v = func(frame, (x, y), (h, s, v), data)
+#            if(do_rainbow):
+#                h = int((((y + rmove) / height) * 255) % 255)
+#                s = int(((x / width) * 255) + 126 % 255)
+#            else:
+#                h = (h + hue) % 255
+#                s = (s + 50) if s + 50 > 255 else s + 50 
             ld[x,y] = (h,s,v)
     frame = frame.convert("RGBA")
     mask = mask.convert("L")
@@ -85,6 +116,8 @@ def init_parser():
         action=argparse.BooleanOptionalAction)
     parser.add_argument("-s", "--shiny", help="Makes the image change colours in a cool way.",
         action=argparse.BooleanOptionalAction)
+    parser.add_argument("-k", "--clusters", help="Amount of dominant colours to be extracted (with --shiny)",
+        metavar="k", default=3, type=int)
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -93,24 +126,24 @@ if __name__ == "__main__":
     hues = sorted(random.sample(range(-360, 360), args.frames))
     frames = []
 
-    #if args.shiny:
-    #    all_colors = 
-    #    pass
-
+    if args.shiny:
+        dominant_colors = get_dominant_colors(im, args.clusters)
+        save_palette(im, dominant_colors, str(args.output).replace(".gif", "_palette.png"))
+        main_color = rgb_to_hsv(dominant_colors[2][0], dominant_colors[2][1], dominant_colors[2][2]) # main_color should be in HSV colorspace
 
     for i in range(args.frames):
         if args.shiny:
-
-            frames.append(frame)
+            poggers_frame = pog_frame_general(im, i, _shiny_frame, data=(main_color, i))
+            #frames.append(frame)
         elif args.rainbowify:
             amount = im.height / args.frames
-            rframe = pog_frame_phase2(im, None, i, True, (i*amount))
-            frames.append(rframe)
+            poggers_frame = pog_frame_general(im, i, _rainbow_frame, data=(i*amount))
         else:
             poggers_frame = pog_frame_phase1(im, args.move, i)
-            poggers_frame = pog_frame_phase2(poggers_frame, hues[i], i)
-            frames.append(poggers_frame)
+            poggers_frame = pog_frame_general(poggers_frame, i, _pog_frame, data=hues[i])
+        frames.append(poggers_frame)
         print(f"Processed frame {i+1}/{args.frames}")
-    save_transparent_gif(frames, args.duration, args.output)
+    if(len(frames) > 1):
+        save_transparent_gif(frames, args.duration, args.output)
 #    im.save(fp=args.output, format="GIF", append_images=frames,
 #                   save_all=True, duration=args.duration, loop=0)

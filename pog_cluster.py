@@ -3,7 +3,6 @@
 # inspired from here
 # https://www.analyticsvidhya.com/blog/2016/11/an-introduction-to-clustering-and-different-methods-of-clustering/
 
-
 import random
 from PIL import Image, ImageDraw
 from functools import reduce
@@ -23,7 +22,6 @@ class Cluster():
         self.data_count += amount
         self.cluster[color] = amount
 
-
     def remove(self, color):
         self.data_count -= self.cluster[color]
         self.cluster.pop(color)
@@ -37,8 +35,11 @@ class Cluster():
 
     def has_color(self, color):
         return color in self.cluster
+    
+    def get_data_count(self):
+        return self.data_count
 
-def cluster_colors(img, k):
+def _cluster_colors(img, k):
     # each centroid is a dominant color
     clusters = [Cluster() for _ in range(k)] # c[0] -> cluster 1 
     all_pts = _group_colours(img) # every color is a data point in 3D space
@@ -60,10 +61,9 @@ def cluster_colors(img, k):
 
         # both sets contain the same centroids
         if old_centroids == centroids:
-            print(f"I broke after {lo} tries!")
+            print(f"I found ideal cluster after {lo} iterations!")
             break
 
-        #new_clusters = [[] for _ in range(k)] # never again initalize stuff like this - [[]] * k
         for color in all_pts:   
             ptr, ptg, ptb = color
             min_dist = 10000 # since the space is a 255 cube, the distance can't be too large, right?
@@ -76,17 +76,15 @@ def cluster_colors(img, k):
                     min_dist = dist
                     new_cluster = cluster
 
-#            for c in clusters:
-#                print(f"Cluster {c} contains color {color}: {c.has_color(color)}")
             old_cluster = next((cluster for cluster in clusters if cluster.has_color(color)), None)
-            #print(old_cluster == new_cluster)
             if not old_cluster == new_cluster:
                 new_cluster.add(color, old_cluster.cluster[color])
                 old_cluster.remove(color)
+    return sorted(clusters, key=lambda c: c.get_data_count())
 
-            #new_clusters[cid].append((ptr, ptg, ptb))
-        #clusters = new_clusters
-    return clusters
+def get_dominant_colors(img, k):
+    clusters = _cluster_colors(img, k)
+    return [c.get_centroid() for c in clusters]
 
 def _group_colours(img):
     ld = img.load()
@@ -117,25 +115,30 @@ def _group_colours(img):
                 col_dict[rbgcol] = 1
     return col_dict
 
+def save_palette(im, dominant_colors, filename="output_palette.png"):
+    width, height = im.size
+    k = len(dominant_colors)
+    palette_size = int(height * 0.1)
+    new_im = Image.new(im.mode, size = (width, height + palette_size))
+    new_im.putdata(im.getdata())
+
+    draw = ImageDraw.Draw(new_im)
+    y_avg = int(palette_size/2)
+    x_offset = int(width/k + 1)
+
+    for i in range(len(dominant_colors)):
+        g = tuple([int(c) for c in dominant_colors[i]])
+        draw.line([((k - i) * x_offset, height + y_avg), (0, height +  y_avg)], fill = g, width=palette_size)
+
+    new_im.save(filename)
+
+# example usage:
+"""
 k = 3
-
 im = Image.open("test/shiny/gangweed.png")
-clusters = cluster_colors(im, k)
-dominant_colors = [x.get_centroid() for x in clusters]
-#print(clusters, dominant_colors)
+dominant_colors = get_dominant_colors(im, k)
+save_palette(im, dominant_colors, "test/shiny/gangweed_palette.png")
+"""
 
-width, height = im.size
-palette_size = int(height * 0.1)
-new_im = Image.new(im.mode, size = (width, height + palette_size))
-new_im.putdata(im.getdata())
 
-draw = ImageDraw.Draw(new_im)
-y_avg = int(palette_size/2)
-x_offset = int(width/k + 1)
-
-for i in range(len(dominant_colors)):
-    g = tuple([int(c) for c in dominant_colors[i]])
-    draw.line([((k - i) * x_offset, height + y_avg), (0, height +  y_avg)], fill = g, width=palette_size)
-
-new_im.save("test/shiny/gangweed_palette.png")
 
