@@ -6,6 +6,7 @@
 import argparse
 import pathlib
 import random
+import math
 from colorsys import rgb_to_hsv
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance
 # there are issues saving GIFS with transparency, see:
@@ -36,20 +37,33 @@ def _pog_frame(frame, pos, col, hue):
     return h, s, v
 
 def _shiny_frame(frame, pos, col, data):
-    radius = 110 # get a chunk of the colorspace that we're going to be doing modifications to
     main_color = data[0]
+    hue = data[1]
     h, s, v = col
-    amount = 32
-    for g in range(len(main_color)):
-        if(abs(main_color[g] - col[g]) > radius):
-            # if the color is not within the sphere we define, we know
-            # this is not a color we want to modify
-            #print(h, s, v)
-            return h, s, v
+    cutoff = 0.23
 
-    h = int((i * amount) % 255)
-    s = int((i * amount) + 126 % 255)
+    dist = calc_hsv_dist(main_color, col)
+    if dist > cutoff:
+        return h, s, v
+
+    h = int((h+hue) % 255)
+    #s = int((i * amount) + 126 % 255)
     return h, s, v
+
+def calc_hsv_dist(col1, col2):
+    # what's this?
+    # https://stackoverflow.com/questions/35113979/calculate-distance-between-colors-in-hsv-space
+
+    h0, s0, v0 = tuple(i/255. for i in col1)
+    h1, s1, v1 = tuple(i/255. for i in col2)
+
+    dh = min(abs(h1-h0), 1-abs(h1-h0))
+    ds = abs(s1-s0)
+    dv = abs(v1-v0)
+
+    return (dh**2 + ds**2 + dv**2) ** (1/2)
+
+
 # based on https://stackoverflow.com/questions/24874765/python-pil-shift-the-hue-and-saturation
 # if anyone has any better solutions using stock python, please reach out, this is rather slow
 def pog_frame_general(frame, fid, func, data):
@@ -72,12 +86,7 @@ def pog_frame_general(frame, fid, func, data):
 
             h,s,v = ld[x,y]
             h,s,v = func(frame, (x, y), (h, s, v), data)
-#            if(do_rainbow):
-#                h = int((((y + rmove) / height) * 255) % 255)
-#                s = int(((x / width) * 255) + 126 % 255)
-#            else:
-#                h = (h + hue) % 255
-#                s = (s + 50) if s + 50 > 255 else s + 50 
+
             ld[x,y] = (h,s,v)
     frame = frame.convert("RGBA")
     mask = mask.convert("L")
@@ -129,12 +138,13 @@ if __name__ == "__main__":
     if args.shiny:
         dominant_colors = get_dominant_colors(im, args.clusters)
         save_palette(im, dominant_colors, str(args.output).replace(".gif", "_palette.png"))
-        main_color = rgb_to_hsv(dominant_colors[2][0], dominant_colors[2][1], dominant_colors[2][2]) # main_color should be in HSV colorspace
+        h,s,v = rgb_to_hsv(dominant_colors[-1][0]/255., dominant_colors[-1][1]/255., dominant_colors[-1][2]/255.) # main_color should be in HSV colorspace
+        main_color = tuple(pt*255 for pt in (h,s,v))
+        hues = range(0, 255, int(255/args.frames))
 
     for i in range(args.frames):
         if args.shiny:
-            poggers_frame = pog_frame_general(im, i, _shiny_frame, data=(main_color, i))
-            #frames.append(frame)
+            poggers_frame = pog_frame_general(im, i, _shiny_frame, data=(main_color, hues[i]))
         elif args.rainbowify:
             amount = im.height / args.frames
             poggers_frame = pog_frame_general(im, i, _rainbow_frame, data=(i*amount))
