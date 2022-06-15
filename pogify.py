@@ -40,7 +40,7 @@ def _shiny_frame(frame, pos, col, data):
     main_color = data[0]
     hue = data[1]
     h, s, v = col
-    cutoff = 0.23
+    cutoff = 0.48
 
     dist = calc_hsv_dist(main_color, col)
     if dist > cutoff:
